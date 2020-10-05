@@ -1,0 +1,17 @@
+Job id: 29676749
+Allocated node: cpu-e-556
+Mon  5 Oct 22:59:33 BST 2020
+
+Job name: s11_check_related
+
+Initial working folder:
+/rds/project/erf33/rds-erf33-medgen/users/alexey/wecare/reanalysis_wo_danish_2020/scripts/s05_pca
+
+ ------------------ Job progress ------------------ 
+
+Detect and remove related cases (if any) using KING coefficient
+Mon  5 Oct 22:59:33 BST 2020
+
+
+Done
+Mon  5 Oct 22:59:33 BST 2020

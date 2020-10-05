@@ -1,0 +1,37 @@
+Job id: 29676251
+Allocated node: cpu-e-101
+Mon  5 Oct 22:40:38 BST 2020
+
+Job name: s08_select_biallelic_snps
+
+Initial working folder:
+/rds/project/erf33/rds-erf33-medgen/users/alexey/wecare/reanalysis_wo_danish_2020/scripts/s05_pca
+
+ ------------------ Job progress ------------------ 
+
+Select biallelic snps
+Mon  5 Oct 22:40:38 BST 2020
+
+Source vcf counts
+
+Number of samples: 336
+Number of SNPs:    229292
+Number of INDELs:  13829
+Number of MNPs:    0
+Number of others:  0
+Number of sites:   243121
+
+Selecting biallelic SNPs ...
+Indexing ...
+
+Output vcf counts
+
+Number of samples: 336
+Number of SNPs:    229292
+Number of INDELs:  0
+Number of MNPs:    0
+Number of others:  0
+Number of sites:   229292
+
+Done
+Mon  5 Oct 22:42:44 BST 2020

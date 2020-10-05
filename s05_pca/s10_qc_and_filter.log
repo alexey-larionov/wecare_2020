@@ -1,0 +1,60 @@
+Job id: 29676539
+Allocated node: cpu-e-556
+Mon  5 Oct 22:55:29 BST 2020
+
+Job name: s10_qc_and_filter
+
+Initial working folder:
+/rds/project/erf33/rds-erf33-medgen/users/alexey/wecare/reanalysis_wo_danish_2020/scripts/s05_pca
+
+ ------------------ Job progress ------------------ 
+
+Remove cases and variants with low call rates and select common autosomal variants
+Mon  5 Oct 22:55:29 BST 2020
+
+PLINK v2.00a2.3LM 64-bit Intel (24 Jan 2020)   www.cog-genomics.org/plink/2.0/
+(C) 2005-2020 Shaun Purcell, Christopher Chang   GNU General Public License v3
+Logging to /rds/project/erf33/rds-erf33-medgen/users/alexey/wecare/reanalysis_wo_danish_2020/data/s05_pca/s04_autosomal_common/wecare_biallelic_snps_autosomal_common.log.
+Options in effect:
+  --autosome
+  --bfile /rds/project/erf33/rds-erf33-medgen/users/alexey/wecare/reanalysis_wo_danish_2020/data/s05_pca/s03_plink/wecare_biallelic_snps
+  --geno 0.1
+  --hwe 1e-10
+  --maf 0.05
+  --make-bed
+  --memory 48000
+  --mind 0.1
+  --out /rds/project/erf33/rds-erf33-medgen/users/alexey/wecare/reanalysis_wo_danish_2020/data/s05_pca/s04_autosomal_common/wecare_biallelic_snps_autosomal_common
+  --threads 4
+
+Start time: Mon Oct  5 22:55:29 2020
+385361 MiB RAM detected; reserving 48000 MiB for main workspace.
+Using up to 4 compute threads.
+336 samples (0 females, 0 males, 336 ambiguous; 336 founders) loaded from
+/rds/project/erf33/rds-erf33-medgen/users/alexey/wecare/reanalysis_wo_danish_2020/data/s05_pca/s03_plink/wecare_biallelic_snps.fam.
+223075 out of 229292 variants loaded from
+/rds/project/erf33/rds-erf33-medgen/users/alexey/wecare/reanalysis_wo_danish_2020/data/s05_pca/s03_plink/wecare_biallelic_snps.bim.
+Note: No phenotype data present.
+Calculating sample missingness rates... 0%29%58%88%done.
+0 samples removed due to missing genotype data (--mind).
+336 samples (0 females, 0 males, 336 ambiguous; 336 founders) remaining after
+main filters.
+Calculating allele frequencies... 0%29%58%88%done.
+--geno: 7086 variants removed due to missing genotype data.
+--hwe: 355 variants removed due to Hardy-Weinberg exact test (founders only).
+167743 variants removed due to allele frequency threshold(s)
+(--maf/--max-maf/--mac/--max-mac).
+47891 variants remaining after main filters.
+Writing
+/rds/project/erf33/rds-erf33-medgen/users/alexey/wecare/reanalysis_wo_danish_2020/data/s05_pca/s04_autosomal_common/wecare_biallelic_snps_autosomal_common.fam
+... done.
+Writing
+/rds/project/erf33/rds-erf33-medgen/users/alexey/wecare/reanalysis_wo_danish_2020/data/s05_pca/s04_autosomal_common/wecare_biallelic_snps_autosomal_common.bim
+... done.
+Writing
+/rds/project/erf33/rds-erf33-medgen/users/alexey/wecare/reanalysis_wo_danish_2020/data/s05_pca/s04_autosomal_common/wecare_biallelic_snps_autosomal_common.bed
+... 0%28%58%87%done.
+End time: Mon Oct  5 22:55:29 2020
+
+Done
+Mon  5 Oct 22:55:29 BST 2020

@@ -1,0 +1,288 @@
+---
+title: "Project on 1KGP"
+author: "AL"
+date: "29/09/2020"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+editor_options: 
+  chunk_output_type: console
+---
+
+# Summary
+
+<style>
+pre{
+  overflow-x: auto;
+}
+pre code{
+  word-wrap: normal;
+  white-space: pre;
+}
+</style>
+
+```{r echo=F}
+
+options(width=999)
+
+```
+
+# Start section
+
+```{r}
+
+Sys.time()
+gc()
+
+rm(list=ls())
+base_folder <- "/Users/alexey/Documents/wecare/final_analysis_2020/testing_bigsnp/cclg_84"
+setwd(base_folder)
+
+library(bigsnpr) 
+library(bigutilsr) 
+library(ggplot2)
+library(hexbin)
+
+NCORES <- 2
+#NCORES <- nb_cores() 
+
+```
+
+# Read cclg data
+
+```{r}
+
+cclg_bed_file <- file.path(base_folder,"data","s03_non_related","cclg.bed")
+
+cclg.bed <- bed(cclg_bed_file) # bigsnpr::bed
+cclg.bed
+
+attributes(cclg.bed)
+str(cclg.bed)
+
+cclg.bed$bedfile
+cclg.bed$address
+
+cclg_fam.df <- cclg.bed$fam
+head(cclg_fam.df)
+
+cclg_map.df <- cclg.bed$map
+head(cclg_map.df)
+
+cclg_maf.df <- bed_MAF(cclg.bed)
+head(cclg_maf.df)
+
+rm(cclg_bed_file)
+
+```
+
+# Read 1KGP data
+
+Is it in b37 ?
+
+```{r}
+
+kgp_bed_file <- file.path(base_folder,"data","s05_1kgp","1000G_phase3_common_norel.bed")
+
+kgp.bed <- bed(kgp_bed_file) # bigsnpr::bed
+kgp.bed
+
+attributes(kgp.bed)
+str(kgp.bed)
+
+kgp.bed$bedfile
+kgp.bed$address
+
+kgp_fam.df <- kgp.bed$fam
+head(kgp_fam.df)
+
+kgp_map.df <- kgp.bed$map
+head(kgp_map.df)
+
+kgp_maf.df <- bed_MAF(kgp.bed)
+head(kgp_maf.df)
+
+rm(kgp_bed_file)
+
+```
+
+# Load population descriptions for 1KGP
+
+```{r}
+
+data_file <- file.path(base_folder,"data","s05_1kgp","1000G_phase3_common_norel.fam2")
+
+kgp_pop.df <- read.table(data_file, header=T, sep = "\t")
+head(kgp_pop.df)
+
+rm(data_file)
+
+```
+
+# Variants overlap between 1kgp and cclg
+
+```{r}
+
+library(dplyr)
+
+x <- inner_join(kgp_map.df, cclg_map.df, by=c("chromosome","physical.pos"))
+
+dim(x)
+head(x)
+
+```
+
+# Calculate 1KGP PCA
+
+Takes care about LD etc  
+
+```{r}
+
+# bigsnpr::bed_autoSVD, Default k = 10
+kgp.svd <- bed_autoSVD(kgp.bed, ncores = NCORES) 
+
+#attributes(kgp.svd)
+str(kgp.svd)
+
+# Eigenvalues
+plot(kgp.svd$d)
+plot(kgp.svd) # default type="screeplot" see ?plot.big_SVD  
+
+# Eigenvectors
+dim(kgp.svd$u)
+head(kgp.svd$u)
+
+plot(kgp.svd$u[,1],kgp.svd$u[,2])
+plot(kgp.svd,type = "scores")
+plot(kgp.svd,type = "scores",scores=1:10,coeff=0.4)
+
+# Loadings
+dim(kgp.svd$v)
+head(kgp.svd$v)
+plot(kgp.svd,type="loadings",loadings=1:10,coeff=0.4)
+
+```
+
+# Selecting outliers 
+
+See ?plot.big_SVD for plotting svd objets  
+
+```{r}
+
+# Eigenvectors
+U <- kgp.svd$u
+
+# Measure(s) of outlieness  
+# 
+prob <- prob_dist(U, ncores=NCORES) # bigutilsr::prob_dist
+S <- prob$dist.self / sqrt(prob$dist.nn) # alternatively: test$dist.self / test$dist.nn ?
+tukey_threshold <- tukey_mc_up(S) # bigutilsr::tukey_mc_up
+
+# Histogram by "outlieness" score
+ggplot() +
+  geom_histogram(aes(S), color = "black", fill = "blue", alpha = 0.3) +
+  theme_bigstatsr() +
+  geom_vline(xintercept=tukey_threshold, colour="red") +
+  geom_text(aes(x=tukey_threshold, label="tukey_mc_up(S)", y=150), 
+            colour="red", angle=90, vjust = -1, text=element_text(size=11))+
+  labs(x = "Statistic of outlierness (S)", y = "Frequency (sqrt-scale)")
+
+# Indices for outliers/non-outliers (for convinience)
+# Indices are numeric (not logical): rbigparallelr::rows_along(x): seq_len(nrow(x))
+samples_wo_outliers <- rows_along(kgp.bed)[S < tukey_threshold]
+outliers <- rows_along(kgp.bed)[S >= tukey_threshold]
+
+```
+
+# Visualising "outlieness" on scatterplots
+
+```{r}
+
+# Scatterplot with "outlieness" score colourcoded
+plot(kgp.svd, 
+     type = "scores", 
+     scores = c(1,2), 
+     coeff = 0.6) +
+  aes(color = S) + # Alternatively: aes(color = S > tukey_threshold)
+  scale_colour_viridis_c()
+
+# Scatterplot with outliers in red
+plot(U[samples_wo_outliers, 1:2], pch = 1, xlab = "PC1", ylab = "PC2") 
+points(U[outliers, 1:2], pch = 20, col = "red") 
+
+# rm(U)
+
+```
+
+# PCA w/o outliers
+
+```{r}
+
+# Variants not in LD (detected by autoSVD earlier)
+vars_not_in_LD <- attr(kgp.svd, "subset")
+
+# Repeating bed_autoSVD w/o outliers 
+# and usisng already pre-selected variants.  
+# To select the varaints, which are not in LD again: 
+# ind.col=... and thr.r2=NA could be omitted.
+kgp.no.outliers.svd <- bed_autoSVD(kgp.bed,
+                        ind.row = samples_wo_outliers,
+                        ind.col = vars_not_in_LD, 
+                        thr.r2 = NA,
+                        ncores = NCORES)
+
+plot(kgp.no.outliers.svd)
+
+plot(kgp.no.outliers.svd, 
+     type = "scores", 
+     scores = 1:10, 
+     coeff = 0.4)
+
+plot(kgp.no.outliers.svd, 
+     type = "loadings", 
+     loadings = 1:10, 
+     coeff = 0.4)
+
+```
+
+# Project outliers 
+
+A simple projecting procedure would be multiplying the genotypes by the corresponding PC loadings.  
+
+However, the augmented algorithm (OADP) is used to avoid shrinkage (the shrincage is becoming evident in PCs > 10). 
+
+```{r}
+
+# Make NA matrix to allocate PCs for all samples: not-outliers and projected-outliers
+PCs <- matrix(NA, nrow(kgp.bed), ncol(kgp.no.outliers.svd$u))
+
+# A special case of using predict.big_SVD to copy
+# scored available from kgp.no.outliers.svd to the new matrix
+# (i.e. omitting the outliers rows)
+PCs[samples_wo_outliers, ] <- predict(kgp.no.outliers.svd)
+
+# Calculate the "projection" - whatever it is - for the outliers ...
+proj <- bed_projectSelfPCA(kgp.no.outliers.svd, 
+                           kgp.bed,
+                           ind.row = outliers,
+                           ncores = 1) # for a few individuals
+
+# Add the "projected" scores for outlying (??) indovoduals
+PCs[outliers, ] <- proj$OADP_proj
+
+plot(PCs[samples_wo_outliers, 1:2], pch = 1, xlab = "PC1", ylab = "PC2")
+points(PCs[outliers, 1:2], pch = 20, col = "red")
+
+```
+
+# End section
+
+```{r}
+
+ls()
+Sys.time()
+gc()
+
+```
+

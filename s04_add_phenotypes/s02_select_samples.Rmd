@@ -1,0 +1,329 @@
+---
+title: "Select samples"
+author: "Alexey Larionov"
+date: "05 October 2020"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+editor_options:
+  chunk_output_type: console
+---
+
+# Summary
+
+Remove NFE samples, wecare samples failed sequencing and other filters:  
+
+- low concordance with GWAS (when GWAS available)  
+- duplicates for QC  
+- carriers of BRCA1/2 and PSALB2  
+- low call rate in samples (<0.9)
+
+Write the selected samples to a text file (for PCA).  
+Exclude non-polymotphic sites appeared after thhe samples removal.  
+
+<style>
+pre{
+  overflow-x: auto;
+}
+pre code{
+  word-wrap: normal;
+  white-space: pre;
+}
+</style>
+
+```{r echo=F}
+
+options(width=999)
+
+```
+
+# Start section
+
+```{r}
+
+# Time
+Sys.time()
+
+# Memory
+gc()
+
+# Clean up
+rm(list=ls())
+graphics.off()
+
+# Options
+options(stringsAsFactors = F)
+
+# Working folders
+base_folder <- "/rds/project/erf33/rds-erf33-medgen"
+project_folder=file.path(base_folder,"users/alexey/wecare/reanalysis_wo_danish_2020")
+data_folder <- file.path(project_folder,"data","s04_add_phenotypes")
+scripts_folder <- file.path(project_folder,"scripts","s04_add_phenotypes")
+setwd(scripts_folder)
+
+# Required library
+library(dplyr)
+
+```
+
+# Load data
+
+```{r}
+
+load(file.path(data_folder,"s01_add_phenotypes.RData"))
+
+```
+
+# Check data
+
+Note that phenotypes are not syncronised withh other data yet  
+
+```{r}
+
+ls()
+
+dim(full_header.df)
+dim(full_variants.df)
+
+dim(full_dp.mx)
+dim(full_gq.mx)
+dim(full_gt.mx)
+dim(full_ad.mx)
+
+dim(phenotypes_with_danish.df)
+
+```
+
+# Sequenced wecare samples
+
+Ony wecare samples are present in the phenotype table (no NFE samples in the table).  
+
+Some of the samples failed sequencing and some of the sequencing results do not represent any sample (e.g. if some samples were accidentally mixed during library preparation).  
+
+```{r}
+
+# Make an index for samples not failed sequencing
+sequenced_wecare <- phenotypes_with_danish.df$wes_id %in% colnames(full_gt.mx)
+
+# Count samples
+sum(sequenced_wecare)
+sum(!sequenced_wecare)
+
+```
+
+# Danish samples
+
+Danish consents do not allow studying known breast cancer risk genes, so danish samples are excluded from this analysis  
+
+```{r}
+
+# Make an index for danish samples
+danish <- phenotypes_with_danish.df$danish
+
+# Count samples
+sum(danish)
+sum(!danish)
+
+```
+
+# Other filters
+
+Samples to be removed:  
+
+- low concordance with GWAs  
+- duplicates added for QC  
+- BRCA1/2 and PALB2 carriers  
+
+Keep eigenvector outliers detected in the previous versions of analysis because eigenvectors will be re-calculated  
+
+```{r}
+
+# Explore filters
+phenotypes_with_danish.df %>%
+  group_by(filter) %>%
+  summarise(count=n()) %>%
+  arrange(desc(count))
+
+# Select samples passed filters
+pass_other_filters <- phenotypes_with_danish.df$filter == "pass" |
+        phenotypes_with_danish.df$filter == "eigenvectors_outlier"
+
+# Count samples
+sum(pass_other_filters)
+sum(!pass_other_filters)
+
+```
+
+# Combined filter
+
+```{r}
+
+# Combined filter (to use on rows of the phenotypes data frame)
+combined_filter <- sequenced_wecare & !danish & pass_other_filters
+sum(combined_filter)
+sum(!combined_filter)
+
+# Combined filter names (to use on columns of thhe genotype matrices)
+combined_filter_names <- phenotypes_with_danish.df[combined_filter,"wes_id"]
+length(combined_filter_names)
+
+# Clean-up
+rm(sequenced_wecare,danish,pass_other_filters)
+
+```
+
+# Sample call rates
+
+```{r}
+
+# Function to calculate call rate
+call_rate.udf <- function(x){sum(!is.na(x))/length(x)}
+
+# Call rates in all genotypes
+call_rates_all <- apply(full_gt.mx,2,call_rate.udf)
+
+plot(call_rates_all, main="All WECARE and NFE before filters")
+abline(h=0.9, lty=2, col="red")
+abline(v=198.5, lty=2, col="red")
+
+# Call rates in selected non-danish wecare
+call_rates_selected <- apply(full_gt.mx[,combined_filter_names],2,call_rate.udf)
+
+plot(call_rates_selected, main="Non-Danish WECARE passed filters")
+abline(h=0.9, lty=2, col="red")
+
+# The outlier(s)
+outliers <- combined_filter_names[call_rates_selected < 0.9]
+length(outliers)
+outliers
+
+# Wecare samples with good call rate
+low__call_rate <- phenotypes_with_danish.df$wes_id %in% outliers
+sum(low__call_rate)
+
+# Clean-up
+rm(call_rate.udf,call_rates_all,call_rates_selected,outliers,combined_filter_names)
+
+```
+
+# Update samples in the dataset
+
+```{r}
+
+# Update phenotypes
+updated_filter <- combined_filter & !low__call_rate
+sum(updated_filter)
+
+# Update phenotypes table
+phenotypes.df <- phenotypes_with_danish.df[updated_filter,]
+dim(phenotypes.df)
+summary(as.factor(phenotypes.df$cc))
+
+# Get names of samples from the updated phenotypes table
+selected_samples <- phenotypes.df$wes_id
+
+# Update genotype matrices
+selected_dp.mx <- full_dp.mx[,selected_samples]
+selected_gq.mx <- full_gq.mx[,selected_samples]
+selected_gt.mx <- full_gt.mx[,selected_samples]
+selected_ad.mx <- full_ad.mx[,selected_samples]
+
+dim(selected_gt.mx)
+
+# Write the list of selected samples to a text file (for PCA analysis)
+file_name=file.path(data_folder,"s02_selected_samples.txt")
+write.table(phenotypes.df$wes_id,
+            file_name,quote=F,sep="\t",row.names=F,col.names=F)
+
+# Clean-up
+rm(combined_filter,low__call_rate,updated_filter,file_name,selected_samples,
+   phenotypes_with_danish.df,full_dp.mx,full_gq.mx,full_gt.mx,full_ad.mx)
+
+```
+
+# Remove non-polymorphic variant sites
+
+After removal of NFE and failed/danish WECARE samples some variant sites are becoming non-polymorphic in the dataset.
+
+```{r}
+
+# Function to detect uniform vector
+# Must return T or F, assuming at least one non-NA value in the vector
+uniform.udf <- function(x){min(x,na.rm=T)==max(x,na.rm=T) & any(!is.na(x))}
+
+uniform_sites <- apply(selected_gt.mx,1,uniform.udf)
+summary(as.factor(uniform_sites))
+
+# Update genotype matrices
+dp.mx <- selected_dp.mx[!uniform_sites,]
+gq.mx <- selected_gq.mx[!uniform_sites,]
+gt.mx <- selected_gt.mx[!uniform_sites,]
+ad.mx <- selected_ad.mx[!uniform_sites,]
+
+dim(selected_gt.mx)
+
+# Update variants
+variants.df <- full_variants.df[!uniform_sites,]
+dim(variants.df)
+
+# Clean-up
+rm(uniform.udf,uniform_sites,
+   selected_dp.mx,selected_gq.mx,selected_gt.mx,selected_ad.mx,
+   full_variants.df)
+
+```
+
+# Check data
+
+```{r}
+
+ls()
+
+# Check objects dimentions
+dim(full_header.df)
+dim(variants.df)
+
+dim(dp.mx)
+dim(gq.mx)
+dim(gt.mx)
+dim(ad.mx)
+
+dim(phenotypes.df)
+
+# Check that the tables and matrices are in sync
+sum(phenotypes.df$wes_id != colnames(gt.mx))
+sum(phenotypes.df$wes_id != colnames(gq.mx))
+sum(phenotypes.df$wes_id != colnames(dp.mx))
+sum(phenotypes.df$wes_id != colnames(ad.mx))
+
+sum(variants.df$ID != rownames(gt.mx))
+sum(variants.df$ID != rownames(gq.mx))
+sum(variants.df$ID != rownames(dp.mx))
+sum(variants.df$ID != rownames(ad.mx))
+
+```
+
+# Save results
+
+```{r}
+
+save.image(file.path(data_folder,"s02_select_samples.RData"))
+
+# Save phenotypes data (for showing case/control status in PCA plots)
+save(phenotypes.df, file=file.path(data_folder,"s02_selected_phenotypes.RData") )
+
+# Save variants data (for comparing with bcftools polymorphic)
+save(variants.df, file=file.path(data_folder,"s02_selected_variants.RData") )
+
+```
+
+# Final section
+
+```{r}
+
+sessionInfo()
+Sys.time()
+gc()
+
+```

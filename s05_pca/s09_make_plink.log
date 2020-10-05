@@ -1,0 +1,16 @@
+Job id: 29676267
+Allocated node: cpu-e-556
+Mon  5 Oct 22:43:26 BST 2020
+
+Job name: s09_make_plink
+
+Initial working folder:
+/rds/project/erf33/rds-erf33-medgen/users/alexey/wecare/reanalysis_wo_danish_2020/scripts/s05_pca
+
+ ------------------ Job progress ------------------ 
+
+Convert VCF file to plink bed-bim-fam fileset
+Mon  5 Oct 22:43:26 BST 2020
+
+Done
+Mon  5 Oct 22:43:33 BST 2020
