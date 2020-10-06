@@ -2,11 +2,11 @@
 title: "Projecting WECARE on 1KGP"
 author: "AL"
 date: "06/10/2020"
-output: 
+output:
   html_document:
     toc: true
     toc_float: true
-editor_options: 
+editor_options:
   chunk_output_type: console
 ---
 
@@ -69,6 +69,19 @@ rm(bed_file)
 
 ```
 
+# Read wecare phenotypes
+
+```{r}
+
+data_file <- file.path(data_folder,"s12_phenotypes_with_PCs.RData")
+
+load(data_file)
+dim(phenotypes.df)
+
+rm(data_file)
+
+```
+
 # Read b37 1KGP data
 
 ```{r}
@@ -89,168 +102,75 @@ rm(bed_file)
 
 ```{r}
 
-data_file <- file.path(base_folder,"data","s05_1kgp","1000G_phase3_common_norel.fam2")
+data_file <- file.path(base_folder,"resources","1kgp","b37","s00_phenotypes","igsr-1000_genomes_phase_3_release.tsv")
 
 kgp_pop.df <- read.table(data_file, header=T, sep = "\t")
-head(kgp_pop.df)
+dim(kgp_pop.df)
 
 rm(data_file)
 
 ```
 
-# Variants overlap between 1kgp and cclg
+# Check variants overlap between 1kgp and cclg
 
 ```{r}
 
-library(dplyr)
+wecare_map.df <- wecare.bed$map
+dim(wecare_map.df)
 
-x <- inner_join(kgp_map.df, cclg_map.df, by=c("chromosome","physical.pos"))
+kgp_map.df <- kgp.bed$map
+dim(kgp_map.df)
+
+x <- inner_join(kgp_map.df, wecare_map.df, by=c("chromosome","physical.pos"))
 
 dim(x)
 head(x)
 
-```
-
-# Calculate 1KGP PCA
-
-Takes care about LD etc  
-
-```{r}
-
-# bigsnpr::bed_autoSVD, Default k = 10
-kgp.svd <- bed_autoSVD(kgp.bed, ncores = NCORES) 
-
-#attributes(kgp.svd)
-str(kgp.svd)
-
-# Eigenvalues
-plot(kgp.svd$d)
-plot(kgp.svd) # default type="screeplot" see ?plot.big_SVD  
-
-# Eigenvectors
-dim(kgp.svd$u)
-head(kgp.svd$u)
-
-plot(kgp.svd$u[,1],kgp.svd$u[,2])
-plot(kgp.svd,type = "scores")
-plot(kgp.svd,type = "scores",scores=1:10,coeff=0.4)
-
-# Loadings
-dim(kgp.svd$v)
-head(kgp.svd$v)
-plot(kgp.svd,type="loadings",loadings=1:10,coeff=0.4)
+rm(x)
 
 ```
 
-# Selecting outliers 
-
-See ?plot.big_SVD for plotting svd objets  
-
-```{r}
-
-# Eigenvectors
-U <- kgp.svd$u
-
-# Measure(s) of outlieness  
-# 
-prob <- prob_dist(U, ncores=NCORES) # bigutilsr::prob_dist
-S <- prob$dist.self / sqrt(prob$dist.nn) # alternatively: test$dist.self / test$dist.nn ?
-tukey_threshold <- tukey_mc_up(S) # bigutilsr::tukey_mc_up
-
-# Histogram by "outlieness" score
-ggplot() +
-  geom_histogram(aes(S), color = "black", fill = "blue", alpha = 0.3) +
-  theme_bigstatsr() +
-  geom_vline(xintercept=tukey_threshold, colour="red") +
-  geom_text(aes(x=tukey_threshold, label="tukey_mc_up(S)", y=150), 
-            colour="red", angle=90, vjust = -1, text=element_text(size=11))+
-  labs(x = "Statistic of outlierness (S)", y = "Frequency (sqrt-scale)")
-
-# Indices for outliers/non-outliers (for convinience)
-# Indices are numeric (not logical): rbigparallelr::rows_along(x): seq_len(nrow(x))
-samples_wo_outliers <- rows_along(kgp.bed)[S < tukey_threshold]
-outliers <- rows_along(kgp.bed)[S >= tukey_threshold]
-
-```
-
-# Visualising "outlieness" on scatterplots
-
-```{r}
-
-# Scatterplot with "outlieness" score colourcoded
-plot(kgp.svd, 
-     type = "scores", 
-     scores = c(1,2), 
-     coeff = 0.6) +
-  aes(color = S) + # Alternatively: aes(color = S > tukey_threshold)
-  scale_colour_viridis_c()
-
-# Scatterplot with outliers in red
-plot(U[samples_wo_outliers, 1:2], pch = 1, xlab = "PC1", ylab = "PC2") 
-points(U[outliers, 1:2], pch = 20, col = "red") 
-
-# rm(U)
-
-```
-
-# PCA w/o outliers
-
-```{r}
-
-# Variants not in LD (detected by autoSVD earlier)
-vars_not_in_LD <- attr(kgp.svd, "subset")
-
-# Repeating bed_autoSVD w/o outliers 
-# and usisng already pre-selected variants.  
-# To select the varaints, which are not in LD again: 
-# ind.col=... and thr.r2=NA could be omitted.
-kgp.no.outliers.svd <- bed_autoSVD(kgp.bed,
-                        ind.row = samples_wo_outliers,
-                        ind.col = vars_not_in_LD, 
-                        thr.r2 = NA,
-                        ncores = NCORES)
-
-plot(kgp.no.outliers.svd)
-
-plot(kgp.no.outliers.svd, 
-     type = "scores", 
-     scores = 1:10, 
-     coeff = 0.4)
-
-plot(kgp.no.outliers.svd, 
-     type = "loadings", 
-     loadings = 1:10, 
-     coeff = 0.4)
-
-```
-
-# Project outliers 
+# Project Wecare to 1KGP
 
 A simple projecting procedure would be multiplying the genotypes by the corresponding PC loadings.  
-
-However, the augmented algorithm (OADP) is used to avoid shrinkage (the shrincage is becoming evident in PCs > 10). 
+However, the augmented algorithm (OADP) is used to avoid shrinkage (the shrinkage is becoming evident in PCs > 5).
 
 ```{r}
 
-# Make NA matrix to allocate PCs for all samples: not-outliers and projected-outliers
-PCs <- matrix(NA, nrow(kgp.bed), ncol(kgp.no.outliers.svd$u))
+# Calculate the "projection"
+proj <- bed_projectPCA(kgp.bed, wecare.bed, ncores = NCORES)
 
-# A special case of using predict.big_SVD to copy
-# scored available from kgp.no.outliers.svd to the new matrix
-# (i.e. omitting the outliers rows)
-PCs[samples_wo_outliers, ] <- predict(kgp.no.outliers.svd)
+# Explore proj ...
+str(proj)
+# proj$obj.svd.ref # big_SVD object computed from reference data.
 
-# Calculate the "projection" - whatever it is - for the outliers ...
-proj <- bed_projectSelfPCA(kgp.no.outliers.svd, 
-                           kgp.bed,
-                           ind.row = outliers,
-                           ncores = 1) # for a few individuals
+```
 
-# Add the "projected" scores for outlying (??) indovoduals
-PCs[outliers, ] <- proj$OADP_proj
+```{r}
 
-plot(PCs[samples_wo_outliers, 1:2], pch = 1, xlab = "PC1", ylab = "PC2")
-points(PCs[outliers, 1:2], pch = 20, col = "red")
+# Get 1KGP PCs
+kgen_pcs.mx <- predict(proj$obj.svd.ref)
+
+# Get wecare projections
+wecare_pcs.mx <- proj$OADP_proj 
+dim(wecare_pcs.mx)
+# OADP projection of new data into space of reference PCA
+# proj$obj.svd.ref # big_SVD object computed from reference data.
+
+# Make plot
+x <- cbind(kgen_pcs.mx[, 1:2],"grey")
+y <- cbind(wecare_pcs.mx[, 1:2],"red")
+z <- rbind(x,y)
+
+plot(z[,1:2],col=z[,3], xlab="PC1", ylab="PC2",
+     main="Projecting WECARE to 1KGP")
+text(50,-10,"AFR")
+text(-27,-37,"EAS")
+text(-20,0,"AMR")
+text(-12,10,"SAS")
+text(-12,32,"EUR")
+# Clean-up
+rm(x,y,z)
 
 ```
 
@@ -263,4 +183,3 @@ Sys.time()
 gc()
 
 ```
-
