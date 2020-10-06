@@ -1,7 +1,7 @@
 ---
-title: "Project on 1KGP"
+title: "Projecting WECARE on 1KGP"
 author: "AL"
-date: "29/09/2020"
+date: "06/10/2020"
 output: 
   html_document:
     toc: true
@@ -36,74 +36,52 @@ Sys.time()
 gc()
 
 rm(list=ls())
-base_folder <- "/Users/alexey/Documents/wecare/final_analysis_2020/testing_bigsnp/cclg_84"
-setwd(base_folder)
+base_folder <- "/rds/project/erf33/rds-erf33-medgen"
+project_folder <- file.path(base_folder,"users/alexey/wecare/reanalysis_wo_danish_2020")
+data_folder <- file.path(project_folder,"data","s05_pca")
+scripts_folder <- file.path(project_folder,"scripts","s05_pca")
+setwd(scripts_folder)
 
-library(bigsnpr) 
-library(bigutilsr) 
+library(bigsnpr) # for bed_autoSVD() and bed()
+library(bigutilsr) # for prob_dist() and tukey_mc_up() for outlier detection
+library(hexbin) # for plotting svd loadings
 library(ggplot2)
-library(hexbin)
+library(dplyr)
 
-NCORES <- 2
-#NCORES <- nb_cores() 
-
-```
-
-# Read cclg data
-
-```{r}
-
-cclg_bed_file <- file.path(base_folder,"data","s03_non_related","cclg.bed")
-
-cclg.bed <- bed(cclg_bed_file) # bigsnpr::bed
-cclg.bed
-
-attributes(cclg.bed)
-str(cclg.bed)
-
-cclg.bed$bedfile
-cclg.bed$address
-
-cclg_fam.df <- cclg.bed$fam
-head(cclg_fam.df)
-
-cclg_map.df <- cclg.bed$map
-head(cclg_map.df)
-
-cclg_maf.df <- bed_MAF(cclg.bed)
-head(cclg_maf.df)
-
-rm(cclg_bed_file)
+NCORES <- 5 # 6 cores were requested in sintr
+#NCORES <- nb_cores() doesnt work on cluster
 
 ```
 
-# Read 1KGP data
-
-Is it in b37 ?
+# Read wecare data
 
 ```{r}
 
-kgp_bed_file <- file.path(base_folder,"data","s05_1kgp","1000G_phase3_common_norel.bed")
+# Location of bed file
+bed_file <- file.path(data_folder,"s05_relatedness_check","wecare_biallelic_snps_autosomal_common_norel.bed")
 
-kgp.bed <- bed(kgp_bed_file) # bigsnpr::bed
+# Read (=attach?) data
+wecare.bed <- bed(bed_file) # bigsnpr::bed
+wecare.bed
+
+# Clean-up
+rm(bed_file)
+
+```
+
+# Read b37 1KGP data
+
+```{r}
+
+# Location of bed file
+bed_file <- file.path(base_folder,"resources","1kgp","b37","s08_remove_outliers","kgp_b37_biallelic_snps_autosomal_common_non_related_no_outliers.bed")
+
+# Read (=attach?) data
+kgp.bed <- bed(bed_file) # bigsnpr::bed
 kgp.bed
 
-attributes(kgp.bed)
-str(kgp.bed)
-
-kgp.bed$bedfile
-kgp.bed$address
-
-kgp_fam.df <- kgp.bed$fam
-head(kgp_fam.df)
-
-kgp_map.df <- kgp.bed$map
-head(kgp_map.df)
-
-kgp_maf.df <- bed_MAF(kgp.bed)
-head(kgp_maf.df)
-
-rm(kgp_bed_file)
+# Clean-up
+rm(bed_file)
 
 ```
 
