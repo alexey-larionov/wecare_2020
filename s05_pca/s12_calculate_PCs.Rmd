@@ -1,7 +1,7 @@
 ---
 title: "WECARE only PCA"
 author: "AL"
-date: "04/10/2020"
+date: "06/10/2020"
 output: 
   html_document:
     toc: true
@@ -60,18 +60,18 @@ NCORES <- 5 # 6 cores were requested in sintr
 ```{r}
 
 # Location of bed file
-bed_file <- file.path(data_folder,"s05_relatedness_check","wecare_only_biallelic_snps_autosomal_comon_norel.bed")
+bed_file <- file.path(data_folder,"s05_relatedness_check","wecare_biallelic_snps_autosomal_common_norel.bed")
 
 # Read (=attach?) data
-kgp.bed <- bed(bed_file) # bigsnpr::bed
-kgp.bed
+wecare.bed <- bed(bed_file) # bigsnpr::bed
+wecare.bed
 
-# Explore kgp.bed
-attributes(kgp.bed)
-str(kgp.bed)
+# Explore wecare.bed
+attributes(wecare.bed)
+str(wecare.bed)
 
-kgp.bed$bedfile
-kgp.bed$address
+wecare.bed$bedfile
+wecare.bed$address
 
 # Clean-up
 rm(bed_file)
@@ -83,23 +83,27 @@ rm(bed_file)
 ```{r}
 
 # fam file
-kgp_fam.df <- kgp.bed$fam
-dim(kgp_fam.df)
-head(kgp_fam.df)
+wecare_fam.df <- wecare.bed$fam
+dim(wecare_fam.df)
+head(wecare_fam.df)
 
-# phhenotypes from external file
-kgp_phenotypes.df <- read.table(file.path(base_folder,"s00_phenotypes","igsr-1000_genomes_phase_3_release.tsv"), 
-                                header=T, sep="\t", quote="")
-dim(kgp_phenotypes.df)
-head(kgp_phenotypes.df)
+# Phenotypes from external file
+load(file.path(base_folder,"users","alexey","wecare","reanalysis_wo_danish_2020","data","s04_add_phenotypes","s02_selected_phenotypes.RData"))
+
+dim(phenotypes.df)
+colnames(phenotypes.df)
 
 # Merge fam-file and phenotypes from external file 
-phenotypes.df <- left_join(kgp_fam.df, kgp_phenotypes.df, by=c("sample.ID"="Sample.name"))
-dim(phenotypes.df)
-head(phenotypes.df)
+wecare_phenotypes.df <- left_join(wecare_fam.df, phenotypes.df,
+                                  by=c("sample.ID"="wes_id"))
+dim(wecare_phenotypes.df)
+colnames(wecare_phenotypes.df)
 
 # Make sure that dplyr::left_joint hasnt changed the order of samples
-sum(phenotypes.df$sample.ID != kgp_fam.df$sample.ID)
+sum(wecare_phenotypes.df$sample.ID != wecare_fam.df$sample.ID)
+
+# Clean-up
+rm(phenotypes.df)
 
 ```
 
@@ -108,17 +112,17 @@ sum(phenotypes.df$sample.ID != kgp_fam.df$sample.ID)
 ```{r}
 
 # map file
-kgp_map.df <- kgp.bed$map
-dim(kgp_map.df)
-head(kgp_map.df)
+wecare_map.df <- wecare.bed$map
+dim(wecare_map.df)
+head(wecare_map.df)
 
 # make simple counts 
-kgp_maf.df <- bed_MAF(kgp.bed)
-dim(kgp_maf.df)
-head(kgp_maf.df)
+wecare_maf.df <- bed_MAF(wecare.bed)
+dim(wecare_maf.df)
+head(wecare_maf.df)
 
 # merge map file with the counts
-variants.df <- cbind(kgp_map.df,kgp_maf.df)
+variants.df <- cbind(wecare_map.df,wecare_maf.df)
 dim(variants.df)
 head(variants.df)
 
@@ -128,7 +132,7 @@ sum(x)
 head(variants.df[x,])
 
 # Clean-up
-rm(x)
+rm(x, wecare_map.df, wecare_maf.df)
 
 ```
 
@@ -140,125 +144,59 @@ See ?plot.big_SVD for plotting svd objets.
 ```{r}
 
 # bigsnpr::bed_autoSVD, Default k = 10
-kgp.svd <- bed_autoSVD(kgp.bed, k=20, ncores = NCORES) 
+wecare.svd <- bed_autoSVD(wecare.bed, ncores = NCORES) 
 
 # Variants not in LD (detected by clumping during autoSVD)
-vars_not_in_LD <- attr(kgp.svd, "subset")
+vars_not_in_LD <- attr(wecare.svd, "subset")
 length(vars_not_in_LD)
 
-#attributes(kgp.svd)
-str(kgp.svd)
+#attributes(wecare.svd)
+str(wecare.svd)
 
 # Eigenvalues
-length(kgp.svd$d)
-kgp.svd$d
-plot(kgp.svd) # default type="screeplot" see ?plot.big_SVD  
+length(wecare.svd$d)
+wecare.svd$d
+plot(wecare.svd) # default type="screeplot" see ?plot.big_SVD  
 
 # Eigenvectors
-dim(kgp.svd$u)
-head(kgp.svd$u)
+dim(wecare.svd$u)
+head(wecare.svd$u)
 
 # PCA summary (for PCs from 1 to 20)
-plot(kgp.svd,type = "scores",scores=1:20,coeff=0.4)
+plot(wecare.svd,type = "scores",scores=1:10,coeff=0.4)
 
 # Loadings
-dim(kgp.svd$v)
-head(kgp.svd$v)
+dim(wecare.svd$v)
+head(wecare.svd$v)
 
 # Loadings summary (for PCs from 1 to 20)
-plot(kgp.svd,type="loadings",loadings=1:10,coeff=0.4)
+plot(wecare.svd,type="loadings",loadings=1:10,coeff=0.4)
 
 ```
 
-# PCA plots for 5 super-populations
+# Detailed PCA plots
 
 ```{r}
 
-plot(kgp.svd, type = "scores") +
-     aes(color = phenotypes.df$Superpopulation.code) +
-     labs(title = NULL, color = "Population")
+plot(wecare.svd, type = "scores") +
+     aes(color = wecare_phenotypes.df$cc == 1) +
+     labs(title = NULL, color = "Case")
 
-plot(kgp.svd, type = "scores", scores=3:4) +
-     aes(color = phenotypes.df$Superpopulation.code) +
-     labs(title = NULL, color = "Population")
+plot(wecare.svd, type = "scores", scores=3:4) +
+     aes(color = wecare_phenotypes.df$cc == 1) +
+     labs(title = NULL, color = "Case")
 
-plot(kgp.svd, type = "scores", scores=5:6) +
-     aes(color = phenotypes.df$Superpopulation.code) +
-     labs(title = NULL, color = "Population")
+plot(wecare.svd, type = "scores", scores=5:6) +
+     aes(color = wecare_phenotypes.df$cc == 1) +
+     labs(title = NULL, color = "Case")
 
-plot(kgp.svd, type = "scores", scores=7:8) +
-     aes(color = phenotypes.df$Superpopulation.code) +
-     labs(title = NULL, color = "Population")
+plot(wecare.svd, type = "scores", scores=7:8) +
+     aes(color = wecare_phenotypes.df$cc == 1) +
+     labs(title = NULL, color = "Case")
 
-plot(kgp.svd, type = "scores", scores=9:10) +
-     aes(color = phenotypes.df$Superpopulation.code) +
-     labs(title = NULL, color = "Population")
-
-plot(kgp.svd, type = "scores", scores=11:12) +
-     aes(color = phenotypes.df$Superpopulation.code) +
-     labs(title = NULL, color = "Population")
-
-plot(kgp.svd, type = "scores", scores=13:14) +
-     aes(color = phenotypes.df$Superpopulation.code) +
-     labs(title = NULL, color = "Population")
-
-plot(kgp.svd, type = "scores", scores=15:16) +
-     aes(color = phenotypes.df$Superpopulation.code) +
-     labs(title = NULL, color = "Population")
-
-plot(kgp.svd, type = "scores", scores=17:18) +
-     aes(color = phenotypes.df$Superpopulation.code) +
-     labs(title = NULL, color = "Population")
-
-plot(kgp.svd, type = "scores", scores=19:20) +
-     aes(color = phenotypes.df$Superpopulation.code) +
-     labs(title = NULL, color = "Population")
-
-```
-
-# PCA plots for 26 kgp populations
-
-```{r}
-
-plot(kgp.svd, type = "scores") +
-     aes(color = phenotypes.df$Population.code) +
-     labs(title = NULL, color = "Population")
-
-plot(kgp.svd, type = "scores", scores=3:4) +
-     aes(color = phenotypes.df$Population.code) +
-     labs(title = NULL, color = "Population")
-
-plot(kgp.svd, type = "scores", scores=5:6) +
-     aes(color = phenotypes.df$Population.code) +
-     labs(title = NULL, color = "Population")
-
-plot(kgp.svd, type = "scores", scores=7:8) +
-     aes(color = phenotypes.df$Population.code) +
-     labs(title = NULL, color = "Population")
-
-plot(kgp.svd, type = "scores", scores=9:10) +
-     aes(color = phenotypes.df$Population.code) +
-     labs(title = NULL, color = "Population")
-
-plot(kgp.svd, type = "scores", scores=11:12) +
-     aes(color = phenotypes.df$Population.code) +
-     labs(title = NULL, color = "Population")
-
-plot(kgp.svd, type = "scores", scores=13:14) +
-     aes(color = phenotypes.df$Population.code) +
-     labs(title = NULL, color = "Population")
-
-plot(kgp.svd, type = "scores", scores=15:16) +
-     aes(color = phenotypes.df$Population.code) +
-     labs(title = NULL, color = "Population")
-
-plot(kgp.svd, type = "scores", scores=17:18) +
-     aes(color = phenotypes.df$Population.code) +
-     labs(title = NULL, color = "Population")
-
-plot(kgp.svd, type = "scores", scores=19:20) +
-     aes(color = phenotypes.df$Population.code) +
-     labs(title = NULL, color = "Population")
+plot(wecare.svd, type = "scores", scores=9:10) +
+     aes(color = wecare_phenotypes.df$cc == 1) +
+     labs(title = NULL, color = "Case")
 
 ```
 
@@ -267,7 +205,7 @@ plot(kgp.svd, type = "scores", scores=19:20) +
 ```{r}
 
 # Eigenvectors
-U <- kgp.svd$u
+U <- wecare.svd$u
 
 # Measure(s) of "outlieness"  
 prob <- prob_dist(U, ncores=NCORES) # bigutilsr::prob_dist
@@ -281,112 +219,39 @@ ggplot() +
   geom_vline(xintercept=tukey_threshold, colour="red") +
   labs(x = "Statistic of outlierness (S)", y = "Frequency (sqrt-scale)")
 
-# Indices for outliers/non-outliers (for convinience)
-# Indices are numeric (not logical): rbigparallelr::rows_along(x): seq_len(nrow(x))
-# The threshold of 0.9 has been selected manually from the hhistogram
-samples_wo_outliers <- rows_along(kgp.bed)[S < tukey_threshold]
-outliers <- rows_along(kgp.bed)[S >= tukey_threshold]
-length(outliers)
-
-# Show outliers
-phenotypes.df[outliers,]
-
-# Save the list of outliers
-file_name=file.path(base_folder,"s07_pca","outliers.txt")
-write.table(phenotypes.df[outliers,c("family.ID","sample.ID")],
-            file_name,quote=F,sep="\t",row.names=F,col.names=F)
+# No outliers detected
+sum(S >= tukey_threshold)
 
 # Clean-up
-rm(U,prob,file_name)
+rm(U,prob,S,tukey_threshold,NCORES)
 
 ```
 
-# Visualising "outlieness" on scatterplots
+# Add PCs to phenotypes
 
 ```{r}
 
-# Scatterplot with "outlieness" score colour-coded
-plot(kgp.svd, 
-     type = "scores", 
-     scores = c(1,2), 
-     coeff = 0.6) +
-  aes(color = S) + 
-  scale_colour_viridis_c()
+eigenvectors.mx <- wecare.svd$u
+colnames(eigenvectors.mx) <- 
+  c("pc1","pc2","pc3","pc4","pc5","pc6","pc7","pc8","pc9","pc10")
 
-# Scatterplot with outliers colour-coded
-plot(kgp.svd, 
-     type = "scores", 
-     scores = c(1,2), 
-     coeff = 0.6) +
-  aes(color = S > tukey_threshold)
+phenotypes.df <- cbind(wecare_phenotypes.df, eigenvectors.mx)
+dim(phenotypes.df)
+colnames(phenotypes.df)
+
+# Make sure that the order of samples hasnt changed
+sum(phenotypes.df$sample.ID != wecare_fam.df$sample.ID)
+
+# Check consistency with the previous eigenvectors from WES
+plot(phenotypes.df$eig1_wecare,phenotypes.df$pc1,main="PC1: new vs old WES")
+plot(phenotypes.df$eig2_wecare,phenotypes.df$pc2,main="PC2: new vs old WES")
+
+# Check consistency with the previous eigenvectors from GWAS
+plot(phenotypes.df$eig1_gwas,phenotypes.df$pc1,main="PC1: new WES vs GWAs")
+plot(phenotypes.df$eig2_gwas,phenotypes.df$pc2,main="PC2: new WES vs GWAs")
 
 # Clean-up
-rm(S, tukey_threshold)
-
-```
-
-# PCA w/o outliers
-
-```{r}
-
-# Repeating bed_autoSVD w/o outliers usisng already pre-selected variants:  
-# To repeat selecting the varaints, which are not in LD again (i.e. repeat the clumping): 
-# ind.col= ars_not_in_LD and thr.r2=NA could be omitted.
-kgp.no.outliers.svd <- bed_autoSVD(kgp.bed,
-                        ind.row = samples_wo_outliers,
-                        ind.col = vars_not_in_LD, 
-                        thr.r2 = NA,
-                        ncores = NCORES)
-
-# Eigenvalues summary
-plot(kgp.no.outliers.svd)
-
-# Eigenvectors summary
-plot(kgp.no.outliers.svd, 
-     type = "scores", 
-     scores = 1:10, 
-     coeff = 0.4)
-
-# Loadings summary
-plot(kgp.no.outliers.svd, 
-     type = "loadings", 
-     loadings = 1:10, 
-     coeff = 0.4)
-
-```
-
-# Projecting the outliers to PC-s calculated w/o outliers
-
-A simple projecting procedure would be multiplying the genotypes by the corresponding PC loadings.  
-However, this simpe procdure would be prone for "shrinkage" in hight PCs (e.g. PCs > 10).  
-The augmented algorithm (OADP) is used to avoid shrinkage.  
-
-```{r}
-
-# Calculate the "projection" - whatever it is - for the outliers ...
-proj <- bed_projectSelfPCA(kgp.no.outliers.svd, 
-                           kgp.bed,
-                           ind.row = outliers,
-                           ncores = 1) # for a few individuals
-
-# Make NA matrix to allocate PCs for all samples: not-outliers and projected-outliers
-pc.mx <- matrix(NA, nrow(kgp.bed), ncol(kgp.no.outliers.svd$u))
-
-# A special case of using predict.big_SVD to copy
-# scored available from kgp.no.outliers.svd to the new matrix
-# (i.e. omitting the outliers rows)
-pc.mx[samples_wo_outliers, ] <- predict(kgp.no.outliers.svd)
-
-# Add the "projected" scores for outlying indivoduals
-pc.mx[outliers, ] <- proj$OADP_proj
-
-# Plot projeted outliers
-plot(pc.mx[samples_wo_outliers, 1:2], pch=1, xlab="PC1", ylab="PC2", 
-     main="PC1 vs PC2 recalulated w/o outliers,\nthen outliers projected (red)")
-points(pc.mx[outliers, 1:2], pch=19, col = "red")
-
-# Clean-up
-rm(proj, pc.mx)
+rm(wecare_phenotypes.df, eigenvectors.mx, wecare_fam.df)
 
 ```
 
@@ -394,7 +259,8 @@ rm(proj, pc.mx)
 
 ```{r}
 
-#save.image(file.path(base_folder,"s07_pca","pca.RData"))
+save.image(file.path(data_folder,"s12_calculate_PCs.RData"))
+save(phenotypes.df,file=file.path(data_folder,"s12_phenotypes_with_PCs.RData"))
 
 ```
 
