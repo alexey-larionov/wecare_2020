@@ -1,7 +1,7 @@
 ---
 title: "Read VCF with vcfR"
 author: "Alexey Larionov"
-date: "12 September 2020"
+date: "25 October 2020"
 output: 
   html_document:
     toc: true
@@ -15,6 +15,19 @@ editor_options:
 - Import VCF file into vcfR object  
 - Extract header and variants data  
 - Extract genotype data: GT, DP, GQ and AD  
+
+Initially the script was working and rendering in a standard manner.  
+Without any clear reason, in mid October 2020 it started failing during rendering  
+with error: address 0xfffffffffbdb0318, cause 'memory not mapped' (see s01_run_rmd.log).  
+
+The error is not fully reproducible because the rendering works well with other scripts  
+(e.g. see s02_run_rmd.log). Updating packages etc didnt help.  
+
+Googling suggests that this may kappen if some of the R and Unix libraries  
+are build with incompartible versions of compilers/dependencies.  
+
+Debugging such issue on cluster is complicated. So, the final script  
+version was just run w/o knitting and rendering html log (aka Run -> Run all).  
 
 <style>
 pre{
@@ -147,19 +160,36 @@ rm(full.vcfr)
 
 ```
 
-# Summarize and save
+# Write header data to text file  
+
+Just in case, for future reference  
+
+```{r}
+
+file_name=file.path(data_folder,"s01_header_data.txt")
+write.table(full_header.df,file_name,quote=F,sep="\t",row.names=F)
+rm(full_header.df,file_name)
+
+```
+
+# Check data
 
 ```{r}
 
 ls()
 
-dim(full_header.df)
 dim(full_variants.df)
 
 dim(full_dp.mx)
 dim(full_gq.mx)
 dim(full_gt.mx)
 dim(full_ad.mx)
+
+```
+
+# Save
+
+```{r}
 
 save.image(file.path(data_folder,"s01_import_vcf_to_R.RData"))
 

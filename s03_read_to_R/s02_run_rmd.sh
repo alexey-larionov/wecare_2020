@@ -1,20 +1,20 @@
 #!/bin/bash
 
-# s01_run_rmd.sh
-# Alexey Larionov, 24Oct2020
+# s02_run_rmd.sh
+# Alexey Larionov, 25Oct2020
 
 # Intended use
-# sbatch s01_run_rmd.sh
+# sbatch s02_run_rmd.sh
 
 #SBATCH -J s01_run_rmd
 #SBATCH -A TISCHKOWITZ-SL2-CPU
-#SBATCH -p skylake
+#SBATCH -p skylake-himem
 #SBATCH --mail-type=ALL
 #SBATCH --no-requeue
 #SBATCH --nodes=1
-#SBATCH --ntasks=4
+#SBATCH --ntasks=2
 #SBATCH --time=01:00:00
-#SBATCH --output=s01_run_rmd.log
+#SBATCH --output=s02_run_rmd.log
 #SBATCH --qos=INTR
 
 # skylake 6GB per core
@@ -59,7 +59,7 @@ module load pandoc # required by rmarkdown for html rendering
 module load R/3.6 # make sure its the same R version that was used in rmd script
 
 # Execute rmd script and render html log
-R -e "library('rmarkdown'); render('s01_import_vcf_to_R.Rmd');"
+R -e "library('rmarkdown'); render('s02_explore_data_in_R.Rmd');"
 
 # Completion message
 echo "Done: $(date +%d%b%Y_%H:%M:%S)"

@@ -1,7 +1,7 @@
 ---
 title: "Add phenotypes"
 author: "Alexey Larionov"
-date: "03 October 2020"
+date: "25 October 2020"
 output: 
   html_document:
     toc: true
@@ -83,7 +83,6 @@ rm(source_folder)
 
 ls()
 
-dim(full_header.df)
 dim(full_variants.df)
 
 dim(full_dp.mx)
